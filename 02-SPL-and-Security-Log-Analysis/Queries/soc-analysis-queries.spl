@@ -1,0 +1,61 @@
+# Log source overview
+index=windows
+| stats count by source
+| sort - count
+
+
+# Windows Security event frequency
+index=windows source="WinEventLog:Security"
+| stats count by EventCode
+| sort - count
+
+
+# Successful logons by account and logon type
+index=windows source="WinEventLog:Security" EventCode=4624
+| stats count by Account_Name Logon_Type
+| sort - count
+
+
+# Security events over time
+index=windows source="WinEventLog:Security"
+| timechart span=1h count
+
+
+# Host telemetry
+index=windows
+| stats count dc(source) as LogSources values(source) as Sources by host
+
+
+# Process frequency
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "Name='Image'>(?<ProcessImage>[^<]+)"
+| where isnotnull(ProcessImage)
+| stats count by ProcessImage
+| sort - count
+
+
+# PowerShell activity
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "powershell.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# Rare processes
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "Name='Image'>(?<ProcessImage>[^<]+)"
+| where isnotnull(ProcessImage)
+| rare limit=20 ProcessImage
+
+
+# DNS-related process activity
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "nslookup.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage Image CommandLine
+| sort - _time

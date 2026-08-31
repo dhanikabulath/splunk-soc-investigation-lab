@@ -1,0 +1,55 @@
+# Windows Security Event baseline
+index=windows source="WinEventLog:Security"
+| stats count by EventCode
+| sort - count
+
+
+# User account creation - Event 4720
+index=windows source="WinEventLog:Security" EventCode=4720 "SOC-Lab-User"
+
+
+# Local security group membership change - Event 4732
+index=windows source="WinEventLog:Security" EventCode=4732 "SOC-Lab-User"
+
+
+# Account creation and privilege change timeline
+index=windows source="WinEventLog:Security"
+(EventCode=4720 OR EventCode=4732)
+"SOC-Lab-User"
+| sort _time
+
+
+# Privileged logon activity - Event 4672
+index=windows source="WinEventLog:Security" EventCode=4672
+| stats count by Account_Name
+| sort - count
+
+
+# Windows process creation - Event 4688
+index=windows source="WinEventLog:Security" EventCode=4688
+| stats count by New_Process_Name
+| sort - count
+
+
+# Selected process activity
+index=windows source="WinEventLog:Security" EventCode=4688
+(New_Process_Name="*powershell.exe" OR
+ New_Process_Name="*cmd.exe" OR
+ New_Process_Name="*notepad.exe")
+| table _time Account_Name New_Process_Name Process_Command_Line
+| sort - _time
+
+
+# Password reset activity - Event 4724
+index=windows source="WinEventLog:Security" EventCode=4724 "SOC-Lab-User"
+
+
+# User account deletion - Event 4726
+index=windows source="WinEventLog:Security" EventCode=4726 "SOC-Lab-User"
+
+
+# Account lifecycle timeline
+index=windows source="WinEventLog:Security"
+(EventCode=4720 OR EventCode=4732 OR EventCode=4724 OR EventCode=4726)
+"SOC-Lab-User"
+| sort _time

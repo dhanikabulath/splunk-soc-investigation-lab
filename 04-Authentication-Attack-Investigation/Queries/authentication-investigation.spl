@@ -1,0 +1,36 @@
+# Failed authentication events
+index=windows source="WinEventLog:Security" EventCode=4625 "SOC-Auth-Test"
+| table _time Account_Name Account_Domain Logon_Type Source_Network_Address Failure_Reason Status Sub_Status
+| sort _time
+
+
+# Failed authentication count
+index=windows source="WinEventLog:Security" EventCode=4625 "SOC-Auth-Test"
+| stats count as FailedAttempts by Account_Name
+
+
+# Source analysis
+index=windows source="WinEventLog:Security" EventCode=4625 "SOC-Auth-Test"
+| stats count as FailedAttempts by Account_Name Account_Domain Logon_Type Source_Network_Address
+| sort - FailedAttempts
+
+
+# Failure reason
+index=windows source="WinEventLog:Security" EventCode=4625 "SOC-Auth-Test"
+| stats count by Failure_Reason Status Sub_Status
+| sort - count
+
+
+# Successful vs failed authentication
+index=windows source="WinEventLog:Security"
+(EventCode=4624 OR EventCode=4625)
+"SOC-Auth-Test"
+| eval Result=if(EventCode=4624,"SUCCESS","FAILURE")
+| table _time Result Account_Name Logon_Type Source_Network_Address
+| sort _time
+
+
+# Scope check
+index=windows source="WinEventLog:Security" EventCode=4625
+| stats count as FailedAttempts by Account_Name
+| sort - FailedAttempts

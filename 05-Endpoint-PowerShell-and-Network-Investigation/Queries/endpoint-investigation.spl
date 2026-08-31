@@ -1,0 +1,64 @@
+# PowerShell process activity
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "powershell.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# Parent-child process investigation
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+("whoami.exe" OR "hostname.exe" OR "ipconfig.exe" OR "nslookup.exe" OR "cmd.exe")
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# DNS process investigation
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "nslookup.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# PowerShell network connections
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+"powershell.exe" "DestinationIp"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='DestinationIp'>(?<DestinationIp>[^<]+)"
+| rex field=_raw "Name='DestinationPort'>(?<DestinationPort>[^<]+)"
+| rex field=_raw "Name='DestinationHostname'>(?<DestinationHostname>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User Image DestinationIp DestinationPort DestinationHostname
+| sort - _time
+
+
+# PowerShell command-line investigation
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "powershell.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| where isnotnull(CommandLine)
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# Discovery command analysis
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+("whoami.exe" OR "hostname.exe" OR "ipconfig.exe" OR "nslookup.exe")
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| where isnotnull(Image)
+| stats count values(CommandLine) as Commands by User ParentImage Image
+| sort - count

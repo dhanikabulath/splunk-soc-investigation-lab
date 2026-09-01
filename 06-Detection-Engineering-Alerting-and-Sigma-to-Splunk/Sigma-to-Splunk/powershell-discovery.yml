@@ -1,0 +1,27 @@
+title: PowerShell Discovery Commands
+status: experimental
+description: Detects common Windows discovery utilities launched from PowerShell.
+logsource:
+  category: process_creation
+  product: windows
+
+detection:
+  parent:
+    ParentImage|endswith: '\powershell.exe'
+
+  discovery_tools:
+    Image|endswith:
+      - '\whoami.exe'
+      - '\hostname.exe'
+      - '\ipconfig.exe'
+      - '\nslookup.exe'
+
+  condition: parent and discovery_tools
+
+level: medium
+
+tags:
+  - attack.discovery
+  - attack.t1033
+  - attack.t1082
+  - attack.t1016

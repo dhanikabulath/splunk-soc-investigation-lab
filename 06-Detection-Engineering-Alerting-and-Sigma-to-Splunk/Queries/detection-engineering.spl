@@ -1,0 +1,35 @@
+# Detection 01 - Repeated Failed Authentication
+
+index=windows source="WinEventLog:Security" EventCode=4625
+| stats count as FailedAttempts
+        min(_time) as FirstAttempt
+        max(_time) as LastAttempt
+        by Account_Name Account_Domain Source_Network_Address
+| where FailedAttempts >= 5
+| convert ctime(FirstAttempt) ctime(LastAttempt)
+| sort - FailedAttempts
+
+
+# Detection 02 - PowerShell Discovery Activity
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+("whoami.exe" OR "hostname.exe" OR "ipconfig.exe" OR "nslookup.exe")
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| where like(ParentImage,"%powershell.exe")
+| stats count values(Image) as Processes values(CommandLine) as Commands by User ParentImage
+| where count >= 2
+
+
+# Detection 03 - New Account Followed by Group Change
+
+index=windows source="WinEventLog:Security"
+(EventCode=4720 OR EventCode=4732)
+| stats values(EventCode) as Events
+        min(_time) as FirstSeen
+        max(_time) as LastSeen
+        by Account_Name
+| where mvfind(Events,"4720")>=0 AND mvfind(Events,"4732")>=0
+| convert ctime(FirstSeen) ctime(LastSeen)

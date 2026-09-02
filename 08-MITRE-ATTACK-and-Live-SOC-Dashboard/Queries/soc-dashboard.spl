@@ -1,0 +1,61 @@
+# Panel 01 - Windows Security Events Over Time
+
+index=windows source="WinEventLog:Security"
+| timechart span=5m count as SecurityEvents
+
+
+# Panel 02 - Failed Authentication by Account
+
+index=windows source="WinEventLog:Security" EventCode=4625
+| stats count as FailedAttempts by Account_Name
+| sort - FailedAttempts
+
+
+# Panel 03 - Account and Privilege Changes
+
+index=windows source="WinEventLog:Security"
+(EventCode=4720 OR EventCode=4724 OR EventCode=4726 OR EventCode=4732)
+| eval Activity=case(
+    EventCode=4720,"Account Created",
+    EventCode=4724,"Password Reset",
+    EventCode=4726,"Account Deleted",
+    EventCode=4732,"Group Membership Changed"
+)
+| stats count by Activity
+| sort - count
+
+
+# Panel 04 - Top Sysmon Processes
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| where isnotnull(Image)
+| stats count by Image
+| sort - count
+| head 10
+
+
+# Panel 05 - PowerShell Discovery Activity
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+("whoami.exe" OR "hostname.exe" OR "ipconfig.exe" OR "nslookup.exe")
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| where like(ParentImage,"%powershell.exe")
+| stats count by User Image
+| sort - count
+
+
+# Panel 06 - Failed Authentication KPI
+
+index=windows source="WinEventLog:Security" EventCode=4625
+| stats count as FailedAttempts
+
+
+# Panel 07 - Recent Security Events
+
+index=windows source="WinEventLog:Security"
+| table _time EventCode Account_Name Account_Domain ComputerName
+| sort - _time
+| head 20

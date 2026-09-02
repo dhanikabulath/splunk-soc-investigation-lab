@@ -1,0 +1,48 @@
+# 1. Atomic hostname execution
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "hostname.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# 2. Process chain investigation
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational" "hostname.exe"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='ProcessId'>(?<ProcessId>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='ParentProcessId'>(?<ParentProcessId>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ParentImage ParentProcessId Image ProcessId CommandLine
+| sort - _time
+
+
+# 3. Hostname discovery detection
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| where like(lower(Image),"%\\hostname.exe")
+| table _time User ParentImage Image CommandLine
+| sort - _time
+
+
+# 4. Surrounding Atomic activity
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| where like(lower(Image),"%\\hostname.exe")
+   OR like(lower(ParentImage),"%\\hostname.exe")
+   OR like(lower(CommandLine),"%hostname%")
+| table _time User ParentImage Image CommandLine
+| sort _time

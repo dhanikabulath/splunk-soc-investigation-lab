@@ -1,0 +1,46 @@
+# SOC-IR-001
+# Repeated Failed Authentication Investigation
+
+
+# 1. Initial account triage
+
+index=windows source="WinEventLog:Security" "SOC-Auth-Test"
+| table _time EventCode Account_Name Account_Domain Logon_Type Source_Network_Address
+| sort _time
+
+
+# 2. Investigate Event ID 4798
+
+index=windows source="WinEventLog:Security" EventCode=4798 "SOC-Auth-Test"
+| table _time _raw
+| sort - _time
+
+
+# 3. WMI / process pivot
+
+index=windows source="WinEventLog:Microsoft-Windows-Sysmon/Operational"
+("WmiPrvSE.exe" OR "14928")
+| rex field=_raw "Name='Image'>(?<Image>[^<]+)"
+| rex field=_raw "Name='ProcessId'>(?<ProcessId>[^<]+)"
+| rex field=_raw "Name='ParentImage'>(?<ParentImage>[^<]+)"
+| rex field=_raw "Name='CommandLine'>(?<CommandLine>[^<]+)"
+| rex field=_raw "Name='User'>(?<User>[^<]+)"
+| table _time User ProcessId ParentImage Image CommandLine
+| sort - _time
+
+
+# 4. Successful vs failed authentication check
+
+index=windows source="WinEventLog:Security"
+(EventCode=4624 OR EventCode=4625)
+"SOC-Auth-Test"
+| eval Result=if(EventCode=4624,"SUCCESS","FAILURE")
+| table _time EventCode Result Account_Name Account_Domain Logon_Type Source_Network_Address
+| sort _time
+
+
+# 5. Account enumeration context
+
+index=windows source="WinEventLog:Security" EventCode=4798
+| stats count by Account_Name
+| sort - count
